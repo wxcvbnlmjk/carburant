@@ -292,7 +292,39 @@ function App() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl space-y-6 p-6">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">{title}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            <a
+              href="https://github.com/wxcvbnlmjk/carburant"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img
+                alt="last commit"
+                src="https://img.shields.io/github/last-commit/wxcvbnlmjk/carburant"
+              />
+            </a>
+            <a
+              href="https://github.com/wxcvbnlmjk/carburant"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img
+                alt="github carburant"
+                src="https://img.shields.io/badge/github-carburant-blue?logo=github"
+              />
+            </a>
+            <a
+              href="https://api.prix-carburants.2aaz.fr/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <img
+                alt="api prix carburants"
+                src="https://img.shields.io/badge/api-prix%20carburants-blue"
+              />
+            </a>
+          </div>
         </div>
 
         <div className="relative max-w-xl">
