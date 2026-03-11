@@ -41,7 +41,7 @@ Application web (React) qui permet de rechercher des stations-service en France 
 - **React 19**
 - **TypeScript**
 - **TailwindCSS**
-- **UI**: composants "shadcn/ui" (implémentation locale) + utilitaire `cn()` (`clsx` + `tailwind-merge`)
+- **MUI**: The React component library
 
 ## Installation
 

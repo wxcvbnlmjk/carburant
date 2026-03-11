@@ -8,17 +8,67 @@ import {
 } from '@/api/prixCarburants'
 import { searchCities, type CitySuggestion } from '@/api/ban'
 import {
+  Box,
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+  Chip,
+  Divider,
+  Link,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material'
 
 type DisplayPrice = {
   nom: string
   valeur: string
   maj: string
+}
+
+function parseMajToDate(maj: string): Date | null {
+  const raw = maj.trim()
+  if (!raw || raw === '—') return null
+
+  const iso = new Date(raw)
+  if (!Number.isNaN(iso.getTime())) return iso
+
+  const m = raw.match(/(\d{4})-(\d{2})-(\d{2})/) ?? raw.match(/(\d{2})\/(\d{2})\/(\d{4})/)
+  if (!m) return null
+
+  if (m[1].length === 4) {
+    const year = Number(m[1])
+    const month = Number(m[2])
+    const day = Number(m[3])
+    const d = new Date(year, month - 1, day)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+
+  const day = Number(m[1])
+  const month = Number(m[2])
+  const year = Number(m[3])
+  const d = new Date(year, month - 1, day)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function daysDiffFromToday(date: Date): number {
+  const today = new Date()
+  const a = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  const b = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  return Math.round((a - b) / (24 * 60 * 60 * 1000))
+}
+
+function majTextColor(maj: string): 'success.main' | 'warning.main' | 'error.main' | 'text.secondary' {
+  const d = parseMajToDate(maj)
+  if (!d) return 'text.secondary'
+  const diff = daysDiffFromToday(d)
+  if (diff <= 0) return 'success.main'
+  if (diff === 1) return 'warning.main'
+  return 'error.main'
 }
 
 function asDisplayPricesFromOpendata(payload: unknown): DisplayPrice[] {
@@ -103,6 +153,8 @@ type StationWithPrices = {
 
 type CitySelection = {
   label: string
+  city: string
+  postcode: string
   latitude: number
   longitude: number
 }
@@ -130,7 +182,7 @@ function App() {
 
   const title = useMemo(() => {
     if (!selectedCity) return 'Stations carburant'
-    return `Stations carburant — ${selectedCity.label}`
+    return `Stations carburant — ${selectedCity.city} (${selectedCity.postcode})`
   }, [selectedCity])
 
   const aggregatedPrices = useMemo(() => {
@@ -214,7 +266,7 @@ function App() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [cityQuery])
+  }, [cityQuery, cityDropdownOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -289,49 +341,30 @@ function App() {
   }, [range, selectedCity])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-5xl space-y-6 p-6">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold">{title}</h1>
-            <a
-              href="https://github.com/wxcvbnlmjk/carburant"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <img
-                alt="last commit"
-                src="https://img.shields.io/github/last-commit/wxcvbnlmjk/carburant"
-              />
-            </a>
-            <a
-              href="https://github.com/wxcvbnlmjk/carburant"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <img
-                alt="github carburant"
-                src="https://img.shields.io/badge/github-carburant-blue?logo=github"
-              />
-            </a>
-            <a
-              href="https://api.prix-carburants.2aaz.fr/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <img
-                alt="api prix carburants"
-                src="https://img.shields.io/badge/api-prix%20carburants-blue"
-              />
-            </a>
-          </div>
-        </div>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
+      <Box sx={{ mx: 'auto', maxWidth: 960, p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center">
+          <Typography variant="h5" fontWeight={600}>
+            {title}
+          </Typography>
+          <Link href="https://github.com/wxcvbnlmjk/carburant" target="_blank" rel="noreferrer">
+            <img alt="last commit" src="https://img.shields.io/github/last-commit/wxcvbnlmjk/carburant" />
+          </Link>
+          <Link href="https://github.com/wxcvbnlmjk/carburant" target="_blank" rel="noreferrer">
+            <img
+              alt="github carburant"
+              src="https://img.shields.io/badge/github-carburant-blue?logo=github"
+            />
+          </Link>
+          <Link href="https://api.prix-carburants.2aaz.fr/" target="_blank" rel="noreferrer">
+            <img alt="api prix carburants" src="https://img.shields.io/badge/api-prix%20carburants-blue" />
+          </Link>
+        </Stack>
 
-        <div className="relative max-w-xl">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium">Ville</label>
-            <input
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        <Box sx={{ position: 'relative', maxWidth: 560 }}>
+          <Stack spacing={1}>
+            <TextField
+              label="Ville"
               value={cityQuery}
               onChange={(e) => {
                 setCityQuery(e.target.value)
@@ -340,38 +373,50 @@ function App() {
               }}
               placeholder="Ex: Valence"
               autoComplete="off"
+              size="small"
               onFocus={() => {
                 setCityDropdownOpen(true)
               }}
             />
-            <div className="text-xs text-muted-foreground">
+            <Typography variant="caption" color="text.secondary">
               {selectedCity
                 ? `Latitude: ${selectedCity.latitude.toFixed(4)} — Longitude: ${selectedCity.longitude.toFixed(4)} — Rayon: 10km`
                 : 'Sélectionne une ville pour afficher les prix.'}
-            </div>
-          </div>
+            </Typography>
+          </Stack>
 
           {cityDropdownOpen && (cityLoading || citySuggestions.length > 0) ? (
-            <div className="absolute z-10 mt-2 w-full overflow-hidden rounded-md border bg-popover shadow">
+            <Paper
+              elevation={4}
+              sx={{ position: 'absolute', zIndex: 10, mt: 1, width: '100%', maxHeight: 320, overflow: 'auto' }}
+            >
               {cityLoading ? (
-                <div className="p-3 text-sm text-muted-foreground">Recherche…</div>
+                <Box sx={{ p: 1.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Recherche…
+                  </Typography>
+                </Box>
               ) : null}
 
               {!cityLoading && citySuggestions.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">Aucune suggestion.</div>
+                <Box sx={{ p: 1.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Aucune suggestion.
+                  </Typography>
+                </Box>
               ) : null}
 
               {!cityLoading && citySuggestions.length > 0 ? (
-                <div className="max-h-72 overflow-auto">
+                <List disablePadding>
                   {citySuggestions.map((s) => (
-                    <button
+                    <ListItemButton
                       key={`${s.city}-${s.postcode}-${s.label}`}
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-accent"
                       onClick={() => {
                         setCityQuery(s.label)
                         setSelectedCity({
                           label: s.label,
+                          city: s.city,
+                          postcode: s.postcode,
                           latitude: s.latitude,
                           longitude: s.longitude,
                         })
@@ -379,143 +424,209 @@ function App() {
                         setCitySuggestions([])
                       }}
                     >
-                      <span className="truncate">{s.label}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{s.postcode}</span>
-                    </button>
+                      <ListItemText primary={s.label} secondary={s.postcode} />
+                    </ListItemButton>
                   ))}
-                </div>
+                </List>
               ) : null}
-            </div>
+            </Paper>
           ) : null}
-        </div>
+        </Box>
 
         {selectedCity ? (
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <div className="text-sm font-medium">Totalité des prix carburants (ville)</div>
-              <div className="text-xs text-muted-foreground">
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600}>
+                Totalité des prix carburants (ville)
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
                 Agrégé par carburant. Pour limiter la volumétrie, les détails/prix sont chargés pour maximum 100 stations.
-              </div>
-            </div>
+              </Typography>
+            </Box>
 
-            <div className="space-y-4">
-              {aggregatedPricesByFuel.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  {loading ? 'Chargement…' : 'Aucun prix à afficher.'}
-                </div>
-              ) : (
-                aggregatedPricesByFuel.map(([fuel, rows]) => (
-                  <Card key={fuel}>
-                    <CardHeader>
-                      <CardTitle className="text-base">{fuel}</CardTitle>
-                      <CardDescription>{rows.length} prix</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {rows.map((r) => (
-                        <div
-                          key={`${fuel}-${r.stationId}-${r.valeur}-${r.maj}`}
-                          className="flex items-start justify-between gap-4 rounded-md border p-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">
-                              {r.brand} (id: {r.stationId})
-                            </div>
-                            <div className="truncate text-xs text-muted-foreground">{r.address}</div>
-                            <div className="truncate text-xs text-muted-foreground">maj: {r.maj}</div>
-                          </div>
-                          <div className="shrink-0 text-sm font-semibold">{r.valeur}</div>
-                        </div>
-                      ))}
+            {aggregatedPricesByFuel.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {loading ? 'Chargement…' : 'Aucun prix à afficher.'}
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {aggregatedPricesByFuel.map(([fuel, rows]) => (
+                  <Card key={fuel} variant="outlined">
+                    <CardHeader
+                      title={<Typography variant="subtitle1">{fuel}</Typography>}
+                      subheader={<Typography variant="caption">{rows.length} prix</Typography>}
+                    />
+                    <CardContent>
+                      <Stack spacing={1.25}>
+                        {rows.map((r) => (
+                          <Paper
+                            key={`${fuel}-${r.stationId}-${r.valeur}-${r.maj}`}
+                            variant="outlined"
+                            sx={{ p: 1.5 }}
+                          >
+                            <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start">
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" fontWeight={600} noWrap>
+                                  {r.brand} (id: {r.stationId})
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {r.address}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ color: majTextColor(r.maj), display: 'block' }}
+                                  noWrap
+                                >
+                                  maj: {r.maj}
+                                </Typography>
+                              </Box>
+                              <Chip label={r.valeur} color="primary" size="small" />
+                            </Stack>
+                          </Paper>
+                        ))}
+                      </Stack>
                     </CardContent>
                   </Card>
-                ))
-              )}
-            </div>
-          </div>
+                ))}
+              </Stack>
+            )}
+          </Box>
         ) : null}
 
         {selectedCity ? (
-          <>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {error ? (
-              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm">
-                {error}
-              </div>
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, borderColor: 'error.light', bgcolor: 'rgba(211,47,47,0.08)' }}
+              >
+                <Typography variant="body2" color="error">
+                  {error}
+                </Typography>
+              </Paper>
             ) : null}
 
             {loading && items.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Chargement…</div>
+              <Typography variant="body2" color="text.secondary">
+                Chargement…
+              </Typography>
             ) : null}
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
               {items.map((item) => {
-            const s = item.station
-            const brand = s.Brand?.name ?? '—'
-            const street = s.Address?.street_line ?? '—'
-            const city = s.Address?.city_line ?? '—'
-            const opendataPrices = asDisplayPricesFromOpendata(item.opendata)
-            const fuels = item.details?.Fuels ?? []
+                const s = item.station
+                const brand = s.Brand?.name ?? '—'
+                const street = s.Address?.street_line ?? '—'
+                const city = s.Address?.city_line ?? '—'
+                const opendataPrices = asDisplayPricesFromOpendata(item.opendata)
+                const fuels = item.details?.Fuels ?? []
 
-            return (
-              <Card key={s.id}>
-                <CardHeader>
-                  <CardTitle className="text-lg">{brand}</CardTitle>
-                  <CardDescription>
-                    id: {s.id} — {street} — {city}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {item.error ? (
-                    <div className="text-sm text-destructive">{item.error}</div>
-                  ) : opendataPrices.length > 0 ? (
-                    <div className="space-y-2">
-                      {opendataPrices.map((p, idx) => (
-                        <div
-                          key={`${p.nom}-${idx}`}
-                          className="flex items-center justify-between gap-4 rounded-md border p-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{p.nom}</div>
-                            <div className="truncate text-xs text-muted-foreground">maj: {p.maj}</div>
-                          </div>
-                          <div className="shrink-0 text-sm font-semibold">{p.valeur}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : fuels.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">
-                      {loading ? 'Prix en cours de chargement…' : 'Aucun prix disponible.'}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {fuels.map((f) => (
-                        <div
-                          key={f.id}
-                          className="flex items-center justify-between gap-4 rounded-md border p-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{f.name ?? '—'}</div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              maj: {f.Update?.value ?? f.Update?.text ?? '—'}
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-sm font-semibold">
-                            {typeof f.Price?.value === 'number' ? f.Price.value.toFixed(3) : '—'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )
+                return (
+                  <Card key={s.id} variant="outlined">
+                    <CardHeader
+                      title={<Typography variant="subtitle1">{brand}</Typography>}
+                      subheader={
+                        <Typography variant="caption" color="text.secondary">
+                          id: {s.id} — {street} — {city}
+                        </Typography>
+                      }
+                    />
+                    <Divider />
+                    <CardContent>
+                      {item.error ? (
+                        <Typography variant="body2" color="error">
+                          {item.error}
+                        </Typography>
+                      ) : opendataPrices.length > 0 ? (
+                        <Stack spacing={1.25}>
+                          {opendataPrices.map((p, idx) => (
+                            <Paper
+                              key={`${p.nom}-${idx}`}
+                              variant="outlined"
+                              sx={{ p: 1.5 }}
+                            >
+                              <Stack direction="row" spacing={2} justifyContent="space-between">
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography
+                                    variant="body2"
+                                    fontWeight={600}
+                                    noWrap
+                                  >
+                                    {p.nom}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{ color: majTextColor(p.maj), display: 'block' }}
+                                    noWrap
+                                  >
+                                    maj: {p.maj}
+                                  </Typography>
+                                </Box>
+                                <Chip label={p.valeur} size="small" />
+                              </Stack>
+                            </Paper>
+                          ))}
+                        </Stack>
+                      ) : fuels.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                          {loading ? 'Prix en cours de chargement…' : 'Aucun prix disponible.'}
+                        </Typography>
+                      ) : (
+                        <Stack spacing={1.25}>
+                          {fuels.map((f) => (
+                            <Paper key={f.id} variant="outlined" sx={{ p: 1.5 }}>
+                              <Stack direction="row" spacing={2} justifyContent="space-between">
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography
+                                    variant="body2"
+                                    fontWeight={600}
+                                    noWrap
+                                  >
+                                    {f.name ?? '—'}
+                                  </Typography>
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      color: majTextColor(
+                                        String(f.Update?.value ?? f.Update?.text ?? '—')
+                                      ),
+                                      display: 'block',
+                                    }}
+                                    noWrap
+                                  >
+                                    maj: {f.Update?.value ?? f.Update?.text ?? '—'}
+                                  </Typography>
+                                </Box>
+                                <Chip
+                                  label={
+                                    typeof f.Price?.value === 'number' ? f.Price.value.toFixed(3) : '—'
+                                  }
+                                  size="small"
+                                />
+                              </Stack>
+                            </Paper>
+                          ))}
+                        </Stack>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
               })}
-            </div>
-          </>
+            </Box>
+          </Box>
         ) : (
-          <div className="text-sm text-muted-foreground">Choisis une ville pour afficher les prix.</div>
+          <Typography variant="body2" color="text.secondary">
+            Choisis une ville pour afficher les prix.
+          </Typography>
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }
 
