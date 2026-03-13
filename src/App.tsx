@@ -14,6 +14,7 @@ import {
   CardContent,
   CardHeader,
   Chip,
+  CssBaseline,
   Divider,
   IconButton,
   Link,
@@ -22,6 +23,7 @@ import {
   ListItemText,
   Paper,
   Stack,
+  Switch,
   TextField,
   Tooltip,
   type TooltipProps,
@@ -29,9 +31,12 @@ import {
   tooltipClasses,
   Typography,
 } from '@mui/material'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation'
 import NewReleases from '@mui/icons-material/NewReleases'
 import PlaceIcon from '@mui/icons-material/Place';
+import FiberNewOutlinedIcon from '@mui/icons-material/FiberNewOutlined';
+import { pink } from '@mui/material/colors';
 type DisplayPrice = {
   nom: string
   valeur: string
@@ -180,6 +185,7 @@ type AggregatedPriceRow = {
 }
 
 function App() {
+  const [darkMode, setDarkMode] = useState(false)
   const [items, setItems] = useState<StationWithPrices[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -190,6 +196,16 @@ function App() {
   const [selectedCity, setSelectedCity] = useState<CitySelection | null>(null)
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false)
   const range = 'station=1-20'
+
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: darkMode ? 'dark' : 'light',
+        },
+      }),
+    [darkMode]
+  )
 
   const title = useMemo(() => {
     if (!selectedCity) return 'Stations carburant'
@@ -366,26 +382,35 @@ function App() {
   }, [range, selectedCity])
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
-      <Box sx={{ mx: 'auto', maxWidth: 960, p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center">
-          
-          <Typography variant="h5" fontWeight={600}>
-            {title}
-          </Typography>
-          <Link href="https://github.com/wxcvbnlmjk/carburant" target="_blank" rel="noreferrer">
-            <img alt="last commit" src="https://img.shields.io/github/last-commit/wxcvbnlmjk/carburant" />
-          </Link>
-          <Link href="https://github.com/wxcvbnlmjk/carburant" target="_blank" rel="noreferrer">
-            <img
-              alt="github carburant"
-              src="https://img.shields.io/badge/github-carburant-blue?logo=github"
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
+        <Box sx={{ mx: 'auto', maxWidth: 960, p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center">
+            <Typography variant="h5" fontWeight={600}>
+              {title}
+            </Typography>
+            <Switch
+              checked={darkMode}
+              onChange={(e) => setDarkMode(e.target.checked)}
+              inputProps={{ 'aria-label': 'Mode sombre' }}
             />
-          </Link>
-          <Link href="https://api.prix-carburants.2aaz.fr/" target="_blank" rel="noreferrer">
-            <img alt="api prix carburants" src="https://img.shields.io/badge/api-prix%20carburants-blue" />
-          </Link>
-        </Stack>
+            <Link href="https://github.com/wxcvbnlmjk/carburant" target="_blank" rel="noreferrer">
+              <img alt="last commit" src="https://img.shields.io/github/last-commit/wxcvbnlmjk/carburant" />
+            </Link>
+            <Link href="https://github.com/wxcvbnlmjk/carburant" target="_blank" rel="noreferrer">
+              <img
+                alt="github carburant"
+                src="https://img.shields.io/badge/github-carburant-blue?logo=github"
+              />
+            </Link>
+            <Link href="https://api.prix-carburants.2aaz.fr/" target="_blank" rel="noreferrer">
+              <img
+                alt="api prix carburants"
+                src="https://img.shields.io/badge/api-prix%20carburants-blue"
+              />
+            </Link>
+          </Stack>
 
         <Box sx={{ position: 'relative', maxWidth: 560 }}>
           <Stack spacing={1}>
@@ -512,18 +537,23 @@ function App() {
                               </Box>
                               <Stack direction="row" spacing={1} alignItems="center">
                                 {isMajLessThanHours(r.maj, 24) ? (
-                                  <CustomTooltip title="Nouveau prix" sx={{ color: '#106DC1' }}> 
+                                  <CustomTooltip title="Nouveau prix" color="primary"  > 
                                   <Badge
-                                    badgeContent={<NewReleases color="error" sx={{ fontSize: '20px' }} />}
+                                      badgeContent={
+                                        <Box sx={{ display: 'flex', alignItems: 'right'  }}>
+                                        <NewReleases sx={{ color: pink[600], fontSize: 16 , alignItems: 'right'}} />  
+                                        <FiberNewOutlinedIcon color="primary" sx={{   fontSize: 30 , alignItems: 'right' }} />
+                                        </Box>
+                                      }
                                     color="default"
                                   >
-                                    <LocalGasStationIcon sx={{ color: '#106DC1' }} />
+                                    <LocalGasStationIcon color="primary" />
                                   </Badge>
                                   </CustomTooltip>
                                 ) : null}
-                                <CustomTooltip title="Ouvrir dans Google Maps" sx={{ color: '#106DC1' }}>
+                                <CustomTooltip title="Ouvrir dans Google Maps" color="primary">
                                   <IconButton 
-                                    sx={{ color: '#106DC1' }}
+                                    color="primary"
                                     size="large"
                                     aria-label="Ouvrir la station dans Google Maps"
                                     onClick={() => {
@@ -594,12 +624,19 @@ function App() {
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Typography variant="subtitle1">{brand}</Typography>
                           {isFresh24h ? (
-                            <Badge
-                              badgeContent={<NewReleases color="error" sx={{ fontSize: '20px' }} />}
-                              color="default"
-                            >
-                              <LocalGasStationIcon sx={{ color: '#106DC1' }} />
-                            </Badge>
+                            <CustomTooltip title="Nouveau prix" sx={{ color: '#106DC1' }}> 
+                                <Badge
+                                    badgeContent={
+                                      <Box sx={{ display: 'flex', alignItems: 'right'  }}>
+                                        <NewReleases color="error" sx={{ fontSize: 18 , alignItems: 'left'}} />
+                                        <FiberNewOutlinedIcon sx={{ color: '#106DC1', fontSize: 30  }} />
+                                      </Box>
+                                    }
+                                color="default"
+                              >
+                                <LocalGasStationIcon sx={{ color: '#106DC1' }} />
+                              </Badge>
+                            </CustomTooltip>
                           ) : null}
                         </Stack>
                       }
@@ -677,8 +714,9 @@ function App() {
             Choisis une ville pour afficher les prix.
           </Typography>
         )}
+        </Box>
       </Box>
-    </Box>
+    </ThemeProvider>
   )
 }
 
