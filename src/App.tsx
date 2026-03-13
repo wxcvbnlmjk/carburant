@@ -8,12 +8,14 @@ import {
 } from '@/api/prixCarburants'
 import { searchCities, type CitySuggestion } from '@/api/ban'
 import {
+  Badge,
   Box,
   Card,
   CardContent,
   CardHeader,
   Chip,
   Divider,
+  IconButton,
   Link,
   List,
   ListItemButton,
@@ -21,13 +23,23 @@ import {
   Paper,
   Stack,
   TextField,
+  Tooltip,
+  type TooltipProps,
+  styled,
+  tooltipClasses,
   Typography,
 } from '@mui/material'
-
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation'
+import NewReleases from '@mui/icons-material/NewReleases'
+import PlaceIcon from '@mui/icons-material/Place';
 type DisplayPrice = {
   nom: string
   valeur: string
   maj: string
+}
+ 
+function googleMapsSearchUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
 function parseMajToDate(maj: string): Date | null {
@@ -55,20 +67,19 @@ function parseMajToDate(maj: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-function daysDiffFromToday(date: Date): number {
-  const today = new Date()
-  const a = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
-  const b = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
-  return Math.round((a - b) / (24 * 60 * 60 * 1000))
+function hoursDiffFromNow(date: Date): number {
+  return (Date.now() - date.getTime()) / (60 * 60 * 1000)
 }
 
-function majTextColor(maj: string): 'success.main' | 'warning.main' | 'error.main' | 'text.secondary' {
+function isMajLessThanHours(maj: string, hours: number): boolean {
   const d = parseMajToDate(maj)
-  if (!d) return 'text.secondary'
-  const diff = daysDiffFromToday(d)
-  if (diff <= 0) return 'success.main'
-  if (diff === 1) return 'warning.main'
-  return 'error.main'
+  if (!d) return false
+  const diffH = hoursDiffFromNow(d)
+  return diffH >= 0 && diffH < hours
+}
+
+function majTextSx(): { color: string; display: 'block' } {
+  return { color: 'text.primary', display: 'block' }
 }
 
 function asDisplayPricesFromOpendata(payload: unknown): DisplayPrice[] {
@@ -192,7 +203,10 @@ function App() {
       const s = item.station
       const stationId = s.id
       const brand = s.Brand?.name ?? '—'
-      const address = `${s.Address?.street_line ?? '—'} — ${s.Address?.city_line ?? '—'}`
+      const streetLine = s.Address?.street_line ?? '—'
+      const cityLineRaw = s.Address?.city_line ?? '—'
+      const cityLine = cityLineRaw.replace(/(?!^)\s(\d{5})\b/, '\n$1')
+      const address = `${streetLine}\n${cityLine}`
 
       const opendataPrices = asDisplayPricesFromOpendata(item.opendata)
       if (opendataPrices.length > 0) {
@@ -225,6 +239,17 @@ function App() {
     rows.sort((a, b) => a.fuel.localeCompare(b.fuel) || a.valeur.localeCompare(b.valeur))
     return rows
   }, [items])
+
+  const CustomTooltip = styled(({ className, ...props }: TooltipProps) => (
+    <Tooltip {...props} classes={{ popper: className }} />
+  ))(({ theme }) => ({
+    [`& .${tooltipClasses.tooltip}`]: {
+      backgroundColor: '#106DC1',
+      color: 'rgba(255, 255, 255, 0.87)',
+      boxShadow: theme.shadows[1],
+      fontSize: 11,
+    },
+  }));
 
   const aggregatedPricesByFuel = useMemo(() => {
     const map = new Map<string, AggregatedPriceRow[]>()
@@ -344,6 +369,7 @@ function App() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', color: 'text.primary' }}>
       <Box sx={{ mx: 'auto', maxWidth: 960, p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap" alignItems="center">
+          
           <Typography variant="h5" fontWeight={600}>
             {title}
           </Typography>
@@ -371,16 +397,16 @@ function App() {
                 setSelectedCity(null)
                 setCityDropdownOpen(true)
               }}
-              placeholder="Ex: Valence"
+              placeholder="Ex: Paris"
               autoComplete="off"
               size="small"
               onFocus={() => {
                 setCityDropdownOpen(true)
               }}
             />
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
               {selectedCity
-                ? `Latitude: ${selectedCity.latitude.toFixed(4)} — Longitude: ${selectedCity.longitude.toFixed(4)} — Rayon: 10km`
+                ? `Latitude: ${selectedCity.latitude.toFixed(4)} - Longitude: ${selectedCity.longitude.toFixed(4)} - Rayon: 10km`
                 : 'Sélectionne une ville pour afficher les prix.'}
             </Typography>
           </Stack>
@@ -469,18 +495,47 @@ function App() {
                                 <Typography variant="body2" fontWeight={600} noWrap>
                                   {r.brand} (id: {r.stationId})
                                 </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ whiteSpace: 'pre-line' }}
+                                >
                                   {r.address}
                                 </Typography>
                                 <Typography
                                   variant="caption"
-                                  sx={{ color: majTextColor(r.maj), display: 'block' }}
+                                  sx={majTextSx()}
                                   noWrap
                                 >
                                   maj: {r.maj}
                                 </Typography>
                               </Box>
-                              <Chip label={r.valeur} color="primary" size="small" />
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                {isMajLessThanHours(r.maj, 24) ? (
+                                  <CustomTooltip title="Nouveau prix" sx={{ color: '#106DC1' }}> 
+                                  <Badge
+                                    badgeContent={<NewReleases color="error" sx={{ fontSize: '20px' }} />}
+                                    color="default"
+                                  >
+                                    <LocalGasStationIcon sx={{ color: '#106DC1' }} />
+                                  </Badge>
+                                  </CustomTooltip>
+                                ) : null}
+                                <CustomTooltip title="Ouvrir dans Google Maps" sx={{ color: '#106DC1' }}>
+                                  <IconButton 
+                                    sx={{ color: '#106DC1' }}
+                                    size="large"
+                                    aria-label="Ouvrir la station dans Google Maps"
+                                    onClick={() => {
+                                      const q = `${r.brand} ${r.address}`
+                                      window.open(googleMapsSearchUrl(q), '_blank', 'noopener,noreferrer')
+                                    }}
+                                  >
+                                    <PlaceIcon fontSize="small" />
+                                  </IconButton>
+                                </CustomTooltip>
+                                <Chip label={r.valeur} color="primary" size="small" />
+                              </Stack>
                             </Stack>
                           </Paper>
                         ))}
@@ -527,42 +582,48 @@ function App() {
                 const opendataPrices = asDisplayPricesFromOpendata(item.opendata)
                 const fuels = item.details?.Fuels ?? []
 
+                const majCandidates: string[] = []
+                for (const p of opendataPrices) majCandidates.push(p.maj)
+                for (const f of fuels) majCandidates.push(String(f.Update?.value ?? f.Update?.text ?? ''))
+                const isFresh24h = majCandidates.some((m) => isMajLessThanHours(m, 24))
+
                 return (
                   <Card key={s.id} variant="outlined">
                     <CardHeader
-                      title={<Typography variant="subtitle1">{brand}</Typography>}
+                      title={
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="subtitle1">{brand}</Typography>
+                          {isFresh24h ? (
+                            <Badge
+                              badgeContent={<NewReleases color="error" sx={{ fontSize: '20px' }} />}
+                              color="default"
+                            >
+                              <LocalGasStationIcon sx={{ color: '#106DC1' }} />
+                            </Badge>
+                          ) : null}
+                        </Stack>
+                      }
                       subheader={
-                        <Typography variant="caption" color="text.secondary">
-                          id: {s.id} — {street} — {city}
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                          {`id: ${s.id}\n${street}\n${city}`}
                         </Typography>
                       }
                     />
+                 
                     <Divider />
                     <CardContent>
-                      {item.error ? (
-                        <Typography variant="body2" color="error">
-                          {item.error}
-                        </Typography>
-                      ) : opendataPrices.length > 0 ? (
+                      {opendataPrices.length > 0 ? (
                         <Stack spacing={1.25}>
                           {opendataPrices.map((p, idx) => (
-                            <Paper
-                              key={`${p.nom}-${idx}`}
-                              variant="outlined"
-                              sx={{ p: 1.5 }}
-                            >
+                            <Paper key={`${p.nom}-${idx}`} variant="outlined" sx={{ p: 1.5 }}>
                               <Stack direction="row" spacing={2} justifyContent="space-between">
                                 <Box sx={{ minWidth: 0 }}>
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight={600}
-                                    noWrap
-                                  >
+                                  <Typography variant="body2" fontWeight={600} noWrap>
                                     {p.nom}
                                   </Typography>
                                   <Typography
                                     variant="caption"
-                                    sx={{ color: majTextColor(p.maj), display: 'block' }}
+                                    sx={majTextSx()}
                                     noWrap
                                   >
                                     maj: {p.maj}
@@ -583,21 +644,12 @@ function App() {
                             <Paper key={f.id} variant="outlined" sx={{ p: 1.5 }}>
                               <Stack direction="row" spacing={2} justifyContent="space-between">
                                 <Box sx={{ minWidth: 0 }}>
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight={600}
-                                    noWrap
-                                  >
+                                  <Typography variant="body2" fontWeight={600} noWrap>
                                     {f.name ?? '—'}
                                   </Typography>
                                   <Typography
                                     variant="caption"
-                                    sx={{
-                                      color: majTextColor(
-                                        String(f.Update?.value ?? f.Update?.text ?? '—')
-                                      ),
-                                      display: 'block',
-                                    }}
+                                    sx={majTextSx()}
                                     noWrap
                                   >
                                     maj: {f.Update?.value ?? f.Update?.text ?? '—'}
